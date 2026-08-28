@@ -39,7 +39,36 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest peticion,
                                     HttpServletResponse respuesta,
                                     FilterChain cadena) throws ServletException, IOException {
-        // TODO-U4-2: implementar la extraccion y validacion del token.
+        String authHeader = peticion.getHeader("Authorization");
+        String token = null;
+
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            token = authHeader.substring(7);
+        } else if (peticion.getCookies() != null) {
+            for (jakarta.servlet.http.Cookie cookie : peticion.getCookies()) {
+                if ("access_token".equals(cookie.getName())) {
+                    token = cookie.getValue();
+                    break;
+                }
+            }
+        }
+
+        if (token != null && jwtService.esValido(token)) {
+            String username = jwtService.extraerUsername(token);
+            String rol = jwtService.extraerRol(token);
+            
+            java.util.List<org.springframework.security.core.authority.SimpleGrantedAuthority> autoridades = 
+                java.util.Collections.singletonList(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_" + rol));
+                
+            org.springframework.security.authentication.UsernamePasswordAuthenticationToken auth = 
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(username, null, autoridades);
+                
+            auth.setDetails(new org.springframework.security.web.authentication.WebAuthenticationDetailsSource().buildDetails(peticion));
+            org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(auth);
+        } else {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
+        
         cadena.doFilter(peticion, respuesta);
     }
 }

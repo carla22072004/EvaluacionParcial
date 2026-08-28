@@ -42,7 +42,23 @@ public class OpenLibraryClient {
         this.restClient = restClientExterno;
     }
 
+    @org.springframework.cache.annotation.Cacheable(
+            value = ec.edu.uteq.appweb.biblioteca.config.CacheConfig.CACHE_OPENLIBRARY,
+            key = "#isbn",
+            unless = "#result == null"
+    )
     public OpenLibraryResponse consultarPorIsbn(String isbn) {
-        throw new UnsupportedOperationException("TODO-U4-4: consumir Open Library con cache y manejo de errores");
+        try {
+            return restClient.get()
+                    .uri("/isbn/{isbn}.json", isbn)
+                    .retrieve()
+                    .onStatus(estado -> estado.value() == 404, (peticion, respuesta) -> { })
+                    .onStatus(estado -> estado.value() >= 400 && estado.value() != 404, (peticion, respuesta) -> {
+                        throw new ec.edu.uteq.appweb.biblioteca.exception.ServicioExternoException("Error al consultar Open Library: " + respuesta.getStatusCode());
+                    })
+                    .body(OpenLibraryResponse.class);
+        } catch (org.springframework.web.client.ResourceAccessException e) {
+            throw new ec.edu.uteq.appweb.biblioteca.exception.ServicioExternoException("Error de red o timeout al consultar Open Library");
+        }
     }
 }

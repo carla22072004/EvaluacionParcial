@@ -44,21 +44,50 @@ import org.springframework.stereotype.Service;
 @Service
 public class JwtService {
 
-    // TODO-U4-2: inyecte @Value("${app.jwt.secreto}") y @Value("${app.jwt.expiracion-minutos}")
+    @org.springframework.beans.factory.annotation.Value("${app.jwt.secreto}")
+    private String secretoBase64;
+
+    @org.springframework.beans.factory.annotation.Value("${app.jwt.expiracion-minutos}")
+    private long expiracionMinutos;
 
     public String generar(Usuario usuario) {
-        throw new UnsupportedOperationException("TODO-U4-2: generar el JWT firmado");
+        javax.crypto.SecretKey clave = io.jsonwebtoken.security.Keys.hmacShaKeyFor(io.jsonwebtoken.io.Decoders.BASE64.decode(secretoBase64));
+        java.util.Date ahora = new java.util.Date();
+        java.util.Date expiracion = new java.util.Date(ahora.getTime() + expiracionMinutos * 60000);
+        
+        return io.jsonwebtoken.Jwts.builder()
+                .setSubject(usuario.getUsername())
+                .claim("rol", usuario.getRol().name())
+                .setId(java.util.UUID.randomUUID().toString())
+                .setIssuedAt(ahora)
+                .setExpiration(expiracion)
+                .signWith(clave)
+                .compact();
     }
 
     public String extraerUsername(String token) {
-        throw new UnsupportedOperationException("TODO-U4-2: extraer el claim sub");
+        return extraerClaims(token).getSubject();
     }
 
     public String extraerRol(String token) {
-        throw new UnsupportedOperationException("TODO-U4-2: extraer el claim rol");
+        return extraerClaims(token).get("rol", String.class);
     }
 
     public boolean esValido(String token) {
-        throw new UnsupportedOperationException("TODO-U4-2: validar firma y expiracion");
+        try {
+            extraerClaims(token);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+    
+    private io.jsonwebtoken.Claims extraerClaims(String token) {
+        javax.crypto.SecretKey clave = io.jsonwebtoken.security.Keys.hmacShaKeyFor(io.jsonwebtoken.io.Decoders.BASE64.decode(secretoBase64));
+        return io.jsonwebtoken.Jwts.parserBuilder()
+                .setSigningKey(clave)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
     }
 }

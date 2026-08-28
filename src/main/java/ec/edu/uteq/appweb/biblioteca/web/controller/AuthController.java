@@ -24,5 +24,34 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/auth")
 public class AuthController {
 
-    // TODO-U4-2
+    private final ec.edu.uteq.appweb.biblioteca.repository.UsuarioRepository usuarioRepository;
+    private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
+    private final ec.edu.uteq.appweb.biblioteca.security.JwtService jwtService;
+
+    public AuthController(ec.edu.uteq.appweb.biblioteca.repository.UsuarioRepository usuarioRepository,
+                          org.springframework.security.crypto.password.PasswordEncoder passwordEncoder,
+                          ec.edu.uteq.appweb.biblioteca.security.JwtService jwtService) {
+        this.usuarioRepository = usuarioRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.jwtService = jwtService;
+    }
+
+    @org.springframework.web.bind.annotation.PostMapping("/login")
+    public org.springframework.http.ResponseEntity<ec.edu.uteq.appweb.biblioteca.web.dto.ApiResponse<ec.edu.uteq.appweb.biblioteca.web.dto.LoginResponse>> login(@jakarta.validation.Valid @org.springframework.web.bind.annotation.RequestBody ec.edu.uteq.appweb.biblioteca.web.dto.LoginRequest solicitud) {
+        ec.edu.uteq.appweb.biblioteca.domain.Usuario usuario = usuarioRepository.findByUsernameAndActivoTrue(solicitud.username())
+                .orElse(null);
+
+        if (usuario == null || !passwordEncoder.matches(solicitud.password(), usuario.getPassword())) {
+            return org.springframework.http.ResponseEntity
+                    .status(org.springframework.http.HttpStatus.UNAUTHORIZED)
+                    .body(null);
+        }
+
+        String token = jwtService.generar(usuario);
+        ec.edu.uteq.appweb.biblioteca.web.dto.LoginResponse respuesta = new ec.edu.uteq.appweb.biblioteca.web.dto.LoginResponse(token);
+        
+        return org.springframework.http.ResponseEntity.ok(
+                ec.edu.uteq.appweb.biblioteca.web.dto.ApiResponse.ok(respuesta, "Login exitoso")
+        );
+    }
 }

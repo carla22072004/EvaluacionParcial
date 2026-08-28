@@ -35,6 +35,12 @@ import org.springframework.security.web.SecurityFilterChain;
 @EnableMethodSecurity
 public class SecurityConfig {
 
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
+        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+    }
+
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
@@ -42,11 +48,30 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        // TODO-U4-2: sustituir esta configuracion permisiva por la definitiva.
         http
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(sesion -> sesion.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(peticiones -> peticiones.anyRequest().permitAll());
+                .authorizeHttpRequests(peticiones -> peticiones
+                        .requestMatchers("/api/v1/auth/login", "/swagger-ui/**", "/v3/api-docs/**", "/api/docs", "/actuator/health").permitAll()
+                        .anyRequest().authenticated()
+                )
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            response.setStatus(401);
+                            response.setContentType("application/problem+json");
+                            response.getWriter().write(
+                                    "{\"type\":\"https://uteq.edu.ec/errores/no-autenticado\",\"title\":\"No autenticado\",\"status\":401,\"detail\":\"Token invalido o ausente\",\"timestamp\":\"" + java.time.OffsetDateTime.now() + "\"}"
+                            );
+                        })
+                        .accessDeniedHandler((request, response, accessException) -> {
+                            response.setStatus(403);
+                            response.setContentType("application/problem+json");
+                            response.getWriter().write(
+                                    "{\"type\":\"https://uteq.edu.ec/errores/acceso-denegado\",\"title\":\"Acceso denegado\",\"status\":403,\"detail\":\"No tiene permisos suficientes para ejecutar esta operacion\",\"timestamp\":\"" + java.time.OffsetDateTime.now() + "\"}"
+                            );
+                        })
+                )
+                .addFilterBefore(jwtAuthenticationFilter, org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 }
